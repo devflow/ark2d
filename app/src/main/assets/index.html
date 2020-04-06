@@ -1,0 +1,501 @@
+<html>
+<head>
+    <meta charset="UTF-8"/>
+    <meta
+            name="viewport"
+            content="width=85, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0"
+    />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge"/>
+    <title>Document</title>
+    <link rel="stylesheet" href="./style.css"/>
+</head>
+<body>
+<div style="position: relative; width: 100%; height: 100%;">
+    <div
+            id="spine-widget"
+            style="width: 100%; height: 100%; pointer-events: none; z-index: 20;"
+    ></div>
+</div>
+
+<script src="./jquery.min.js"></script>
+<script src="./spine-widget.js"></script>
+
+<script>
+      var currskin;
+      var spinewidgettoken;
+      var animIndex = 0;
+      var animations;
+      var tokenname;
+      var tokenanimations;
+      var animationqueue;
+      var defaultAnimationName = "Default";
+      var loadchibi = false;
+      // var chibiscaleweb = 0
+      // var chibiscaleweblist = [[0.5,-775],[0.6,-800],[0.7,-825],[0.8,-850],[0.9,-875],[1,-900]]
+      var chibiscale = [0.5, 0];
+      var chibiperscurr = 0;
+      var chibiperslist = ["front", "back", "build"];
+      var bgnum = 0;
+      var bgmax = 5;
+      var scrollcheck = 0;
+      var savenum = 0;
+
+      var canvasNum = 0;
+      var canvasSize = [
+        [1800, 1800],
+        [1200, 800],
+        [800, 800],
+        [600, 600],
+        [500, 500],
+      ];
+      var wid = 1800;
+      var hei = 1800;
+
+      var sw;
+
+      var char_name = "build_char_002_amiya"
+
+      var isFlipX = false
+
+      function changeChar(name) {
+          char_name = name;
+          load();
+      }
+
+      function load() {
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", "spine_data/" + char_name + ".skel", true);
+        xhr.responseType = "arraybuffer";
+        var array;
+        var defaultskin = "default";
+        var skeletonType = "skel";
+        var defaultAnimationName = "Walk";
+
+        xhr.onloadend = function (e) {
+          if (xhr.status != 404) {
+            buffer = xhr.response;
+            array = new Uint8Array(buffer);
+            skelBin = new SkeletonBinary();
+            var jsonskel;
+            if (array.length == 0) {
+              console.log("fiail");
+            }
+            if (skeletonType == "skel") {
+              skelBin.data = array;
+              skelBin.initJson();
+              jsonskel = JSON.stringify(skelBin.json);
+              var parsedskeljson = JSON.parse(jsonskel);
+              console.log(JSON.parse(jsonskel));
+              if (
+                !Object.keys(parsedskeljson.animations).find(
+                  (search) => search == defaultAnimationName
+                )
+              ) {
+                defaultAnimationName = Object.keys(
+                  parsedskeljson.animations
+                )[0];
+              }
+              if (
+                !Object.keys(parsedskeljson.skins).find(
+                  (search) => search == defaultskin
+                )
+              ) {
+                defaultskin = Object.keys(parsedskeljson.skins)[0];
+              }
+            } else if (skeletonType == "json") {
+              jsonskel = JSON.parse(new TextDecoder("utf-8").decode(array));
+              var parsedskeljson = jsonskel;
+              console.log(JSON.parse(jsonskel));
+              if (
+                !Object.keys(parsedskeljson.animations).find(
+                  (search) => search == defaultAnimationName
+                )
+              ) {
+                defaultAnimationName = Object.keys(
+                  parsedskeljson.animations
+                )[0];
+              }
+              if (
+                !Object.keys(parsedskeljson.skins).find(
+                  (search) => search == defaultskin
+                )
+              ) {
+                defaultskin = Object.keys(parsedskeljson.skins)[0];
+              }
+            }
+
+            // var test = new TextDecoder("utf-8").decode(array);
+            // console.log(JSON.parse(test))
+            // console.log(JSON.stringify(skelBin.json, null, "\t"));
+            var spineX = 0;
+            var spineY = 0;
+
+            // console.log(spineX)
+            // console.log(spineY)
+            sw = new spine.SpineWidget("spine-widget", {
+              jsonContent: jsonskel,
+              atlas: "spine_data/" + char_name + ".atlas",
+              animation: defaultAnimationName,
+              backgroundColor: "#00000000",
+              // debug: true,
+              // imagesPath: chibiName + ".png",
+              premultipliedAlpha: true,
+              fitToCanvas: true,
+              loop: true,
+              // x:900,
+              // y:650,
+              x: spineX,
+              y: spineY,
+              //0.5 for normal i guess
+              scale: 1,
+              success: function (widget) {
+                animIndex = 0;
+                spinewidget = widget;
+                widget.skeleton.flipX = isFlipX
+                //$("#spine-text").text(widget.skeleton.data.animations[0].name);
+                //$("#loading-spine").fadeOut(200);
+                animations = widget.skeleton.data.animations;
+                // console.log(animations)
+                // console.log(widget)
+                //$("#spine-widget").show();
+                if (animations.find((search) => search.name == "Start")) {
+                  CreateAnimation(spinewidget, ["Start", "Idle"]);
+                  //$("#spine-text").text("Idle");
+                } else if (
+                  animations.find((search) => search.name == "Relax")
+                ) {
+                  CreateAnimation(spinewidget, "Relax");
+                  //$("#spine-text").text("Relax");
+                }
+
+                // CreateAnimation(["Skill_Begin",["Skill_Loop",5],"Skill_End","Idle"],true)
+                // CreateAnimation(["Skill_2_Begin",["Skill_2_Loop",5],"Skill_2_Loop_End","Idle"],true)
+
+                widget.customanimation = CheckAnimationSet(animations);
+                // console.log(widget)
+
+                //ange skill 2
+                //CreateAnimation(["Skill1_Begin",["Skill1_Loop",15],"Skill1_End",["Idle_Charge",2]],true)
+
+                //ange skill 3 (is weird)
+                // CreateAnimation(["Skill2_Begin",["Skill2_Loop",15],"Skill2_End",["Idle_Charge",2]],true)
+
+                // Normal skill loop with begin and idle i guess (nian skill 2)
+                // CreateAnimation(["Skill_2_Begin",["Skill_2_Loop",5],"Skill_2_Idle"],true,true)
+
+                // console.log(widget.state)
+                // console.log(widget.state.trackEntry)
+                $("#spine-toolbar-next").onclick = function () {
+                  widget.state.clearTracks();
+                  if (animationqueue != undefined)
+                    clearInterval(animationqueue);
+                  animIndex++;
+                  // console.log(animations)
+                  if (animIndex >= animations.length) animIndex = 0;
+                  widget.setAnimation(animations[animIndex].name);
+                  //$("#spine-text").text(animations[animIndex].name);
+                };
+              },
+            });
+          } else {
+            // $("#loading-spine").text("Load Failed");
+            // $("#spine-frame").fadeOut()
+          }
+        };
+        xhr.send();
+      }
+
+      function flipX() {
+        isFlipX = !isFlipX
+        spinewidget.skeleton.flipX = isFlipX
+      }
+
+      function CreateAnimation(
+        chibiwidget,
+        animArray,
+        endloop = false,
+        skipStart = false,
+        isendstop = false
+      ) {
+        // console.log(animArray)
+
+        // console.log(Array.isArray(animArray))
+        // console.log(animArray.length>1)
+        // console.log(Array.isArray(animArray[0]))
+
+        if (Array.isArray(animArray) && animArray.length > 1) {
+          // console.log("ayyyyyy")
+          var delay = 0;
+          var animNum = 0;
+          if (animationqueue != undefined) clearInterval(animationqueue);
+          var curranimplay = Array.isArray(animArray[0])
+            ? animArray[0][0]
+            : animArray[0];
+          if (chibiwidget.loaded) chibiwidget.setAnimation(curranimplay);
+          chibiwidget.state.clearTracks();
+          var curranimations = chibiwidget.skeleton.data.animations;
+          animArray.forEach((element) => {
+            var curranim = element;
+            var animTimes = 1;
+            var isloop = animNum == animArray.length - 1;
+
+            if (Array.isArray(element)) {
+              curranim = element[0];
+              animTimes = element[1];
+              isloop = true;
+            }
+            if (animNum == 0)
+              chibiwidget.state.setAnimation(
+                0,
+                curranim,
+                Array.isArray(animArray[0]) && animArray[0].length > 1
+                  ? true
+                  : false
+              );
+            else if (animNum == animArray.length - 1)
+              chibiwidget.state.addAnimation(
+                animNum,
+                curranim,
+                !isendstop,
+                delay
+              );
+            else
+              chibiwidget.state.addAnimation(animNum, curranim, isloop, delay);
+            delay +=
+              curranimations[GetAnimationIndex(curranimations, curranim)]
+                .duration * animTimes;
+            animNum++;
+            // console.log(element)
+          });
+          if (endloop) {
+            if (skipStart) animArray.shift();
+
+            console.log(animArray);
+            animationqueue = setInterval(function () {
+              var delay = 0;
+              var animNum = 0;
+              var curranimplay = Array.isArray(animArray[0])
+                ? animArray[0][0]
+                : animArray[0];
+              if (chibiwidget.loaded) chibiwidget.setAnimation(curranimplay);
+              chibiwidget.state.clearTracks();
+              animArray.forEach((element) => {
+                var curranim = element;
+                var animTimes = 1;
+                var isloop = animNum == animArray.length - 1;
+                if (Array.isArray(element)) {
+                  curranim = element[0];
+                  animTimes = element[1];
+                  isloop = true;
+                }
+                if (animNum == 0)
+                  chibiwidget.state.setAnimation(
+                    0,
+                    curranim,
+                    Array.isArray(animArray[0]) && animArray[0].length > 1
+                      ? true
+                      : false
+                  );
+                else
+                  chibiwidget.state.addAnimation(
+                    animNum,
+                    curranim,
+                    isloop,
+                    delay
+                  );
+                delay +=
+                  curranimations[GetAnimationIndex(curranimations, curranim)]
+                    .duration * animTimes;
+                animNum++;
+                console.log(element);
+              });
+            }, delay * 1000 - 20);
+          }
+        } else {
+          // chibiwidget.state.setAnimation(animArray)
+          // console.log("WEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")
+
+          if (animationqueue != undefined) clearInterval(animationqueue);
+          // console.log(animArray)
+
+          var curranimplay = Array.isArray(animArray[0])
+            ? animArray[0][0]
+            : animArray;
+          if (chibiwidget.loaded) chibiwidget.setAnimation(curranimplay);
+          chibiwidget.state.clearTracks();
+
+          chibiwidget.state.setAnimation(0, curranimplay, !isendstop);
+        }
+      }
+
+      function CheckChibi() {
+        console.log(spinewidget);
+      }
+
+      function ChangeAnimation(){
+        var curranimation = spinewidget.skeleton.data.animations
+        spinewidget.state.clearTracks()
+        if(animationqueue!=undefined)clearInterval(animationqueue)
+        animIndex += 1;
+        if (animIndex >= curranimation.length) animIndex = 0;
+        else if (animIndex < 0) animIndex = curranimation.length-1;
+        CreateAnimation(spinewidget,curranimation[animIndex].name)
+    }
+
+
+      function CheckAnimationSet(anim) {
+        // console.log(anim)
+        var curranimlist = {};
+        if (anim.find((search) => search.name == "Interact")) {
+          //Build Mode
+          // console.log("Is Build")
+        } else if (anim.find((search) => search.name == "Idle")) {
+          //Battle Mode
+          // console.log("Is Battle")
+          anim.forEach((curranim) => {
+            var numberregx = /(\d)/;
+            var currsplit = curranim.name.split("_")[0];
+
+            if (currsplit) var splitnum = numberregx.exec(curranim.name);
+            if (splitnum) {
+              var nameregex = /(.*)(?=\d)/g;
+              var checkname = nameregex.exec(currsplit);
+              // console.log(checkname[0])
+              if (checkname) currsplit = checkname[0];
+              // console.log(checkname[0])
+              splitnum = splitnum[0];
+            } else if (!splitnum) splitnum = "";
+
+            if (!curranimlist[`${currsplit}${splitnum}`]) {
+              curranimlist[`${currsplit}${splitnum}`] = [];
+            }
+            if (!curranim.name.includes("Down")) {
+              curranimlist[`${currsplit}${splitnum}`].push(curranim.name);
+            }
+          });
+          Object.keys(curranimlist).forEach((keys) => {
+            curranimlist[keys] = curranimlist[keys].sort((a, b) => {
+              var sortarray = [
+                "Pre",
+                "Begin",
+                "Start",
+                "Idle",
+                "",
+                "Loop",
+                "End",
+                "Die",
+              ];
+              var anum = 0;
+              var bnum = 0;
+              for (i = 0; i < sortarray.length; i++) {
+                // console.log(sortarray[i])
+                if (sortarray[i] == "") {
+                  var isAfree = true;
+                  var isBfree = true;
+                  for (j = 0; j < sortarray.length; j++) {
+                    if (sortarray[j] != "") {
+                      if (a.includes(sortarray[j])) isAfree = false;
+                      if (b.includes(sortarray[j])) isBfree = false;
+                    }
+                  }
+                  if (isAfree) anum += 4;
+                  if (isBfree) bnum += 4;
+                } else {
+                  if (a.includes(sortarray[i])) anum += i + 1;
+                  if (b.includes(sortarray[i])) bnum += i + 1;
+                }
+              }
+              return anum - bnum;
+            });
+            // curranimlist[keys].forEach(element => {
+            //     if(curranimlist[keys].length>=2&&(element.includes("Loop")||element.includes("Idle"))){
+            //         console.log(element)
+            //         element = [element,5]
+            //     }
+            // });
+            if (curranimlist[keys].find((search) => search.includes("End"))) {
+              if (anim.find((search) => search.name.includes("Idle_Charge")))
+                curranimlist[keys].push("Idle_Charge");
+              else curranimlist[keys].push("Idle");
+            }
+            if (curranimlist[keys].find((search) => search.includes("Die"))) {
+              if (anim.find((search) => search.name.includes("Start")))
+                curranimlist[keys].push("Start");
+            }
+            for (i = 0; i < curranimlist[keys].length; i++) {
+              var filterarray = [
+                "Pre",
+                "Begin",
+                "Start",
+                "Idle",
+                "Loop",
+                "End",
+                "Die",
+              ];
+              var iscomp = true;
+              if (
+                curranimlist[keys].length >= 2 &&
+                (curranimlist[keys][i].includes("Loop") ||
+                  curranimlist[keys][i].includes("Idle")) &&
+                !curranimlist[keys][i].includes("End")
+              )
+                iscomp = false;
+              else {
+                iscomp = false;
+                filterarray.forEach((element) => {
+                  if (curranimlist[keys][i].includes(element)) iscomp = true;
+                });
+              }
+              if (!iscomp) {
+                // console.log(curranimlist[keys][i])
+                var currvariable = anim.find(
+                  (search) => search.name == curranimlist[keys][i]
+                );
+                // console.log(currvariable)
+                // console.log("Got "+ Math.round(8/currvariable.duration))
+                if (curranimlist[keys][i].includes("Idle")) {
+                  if (Math.round(3 / currvariable.duration) > 3)
+                    curranimlist[keys][i] = [
+                      curranimlist[keys][i],
+                      Math.round(3 / currvariable.duration),
+                    ];
+                } else if (currvariable.duration != 0) {
+                  curranimlist[keys][i] = [
+                    curranimlist[keys][i],
+                    Math.round(8 / currvariable.duration),
+                  ];
+                }
+              }
+            }
+          });
+        }
+        console.log(curranimlist);
+        return curranimlist;
+      }
+
+      function GetAnimationIndex(anim, name) {
+        return anim
+          .map(function (e) {
+            return e.name;
+          })
+          .indexOf(name);
+      }
+
+      $(function () {
+        load();
+      });
+
+      function resize() {
+        times++;
+
+        if (times > 10) {
+            clearInterval(interval)
+        }
+
+       
+      }
+
+
+</script>
+</body>
+</html>
